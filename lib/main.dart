@@ -25,11 +25,6 @@ class _MyAppState extends State<MyApp> {
       home: MyHomePage(),
     );
   }
-
-  @override
-  void initState() {
-    super.initState();
-  }
 }
 
 class MyHomePage extends StatefulWidget {
@@ -38,55 +33,22 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _whatTodo = "";
-  String _query = "";
-  List<Widget> todoList = [];
-
+  String _whatTodo = ""; //입력받은 할일 내용
+  String _query = ""; //검색을 위한 쿼리 미구현으로 미사용
   var _tec = TextEditingController();
-  var _qtec = TextEditingController();
+  var _tec2 = TextEditingController();
 
   void _addToDo() {
-    bool checked = false;
-    IconData iconData = Icons.star_border;
+    //DB에 할일 저장하는 함수
     Firestore.instance.collection('todo').add({
-      'todo': _whatTodo,
-      'time': DateFormat.yMMMMd('en_US').format(DateTime.now()).toString(),
-      'favorite': false
+      'todo': _whatTodo, //할일 텍스트
+      'time': DateFormat.yMMMMd('en_US')
+          .add_jm()
+          .format(DateTime.now())
+          .toString(), //현재 시간
+      'favorite': false //할일 완료 여부 표시
     });
-    // setState(() {
-    //   todoList.add(Padding(
-    //     padding: const EdgeInsets.fromLTRB(8.0,3.0,8.0,0),
-    //     child: ListTile(
-    //       tileColor: Colors.white,
-    //       title: Row(
-    //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    //         children: [
-    //           Checkbox(value: checked, onChanged: null),
-    //           Column(
-    //             children: [
-    //               Text(_whatTodo),
-    //               Text(DateFormat.yMMMMd('en_US').format(DateTime.now()).toString()),
-    //             ],
-    //           ),
-    //           IconButton(
-    //             icon: Icon(iconData),
-    //             onPressed: () {
-    //               setState(() {
-    //                 if(iconData==Icons.star_border){
-    //                   iconData=Icons.star;
-    //                 }else{
-    //                   iconData=Icons.star_border;
-    //                 }
-    //               });
-    //             },
-    //           ),
-    //         ],
-    //       ),
-    //     ),
-    //   ));
-    //   todoList.reversed;
-    // });
-    _tec.text = '';
+    _tec.text = ''; //할일 추가 시 텍스트 필드 비움
   }
 
   @override
@@ -95,16 +57,16 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(""),
             Text('Inbox'),
+            Expanded(
+                child: TextField(decoration: InputDecoration(labelText: '검색'))),
             TextButton(onPressed: () {}, child: Text('Search'))
           ],
         ),
       ),
       body: Container(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
         color: Colors.lightGreen,
         child: Column(
           children: <Widget>[
@@ -130,50 +92,63 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
-            ),
+            ), //할 일 입력하는 공간
+            Text(
+              '작업 목록',
+              style: TextStyle(fontSize: 30),
+            ), //작업 목록 구분용 텍스트
             Expanded(
-              child: ListView(
-                children: todoList,
-              ),
-            ),
-            // Padding(
-            //   padding: const EdgeInsets.all(8.0),
-            //   child: ListView(
-            //     children: todoList,
-            //   ),
-            // ),
-            ElevatedButton(
-                onPressed: () {}, child: Text('SHOW COMPLETED TO -DOS')),
+              child: _buildBody(context, false),
+            ), //작업 리스트
+            Text(
+              '완료한 작업',
+              style: TextStyle(fontSize: 30),
+            ), //완료한 작업 목록 구분용 텍스트
             Expanded(
-              child: _buildBody(context),
-            )
+              child: _buildBody(context, true),
+            ) //작업 리스트
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context) {
+  //DB에서 값을 가져와서 넘겨주기까지
+  Widget _buildBody(BuildContext context, bool done) {
     return StreamBuilder<QuerySnapshot>(
-      stream: Firestore.instance.collection('todo').snapshots(),
+      //스트림빌더를 활용해서 Setstate를 사용하지 않았음.
+      stream: Firestore.instance
+          .collection('todo')
+          .where("favorite", isEqualTo: done)
+          .orderBy('time', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return LinearProgressIndicator();
-
+        if (!snapshot.hasData)
+          return CircularProgressIndicator(); //스냅샷이 비워져있을시 미구현
         return _buildList(context, snapshot.data.documents);
       },
     );
   }
 
+  //넘겨준 객체(스냅샷)마다 map으로 돌려서 ListTile 만드는 함수를 부르고, 결과값을 ListView에 뿌려주기
   Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
-    return ListView(
-      padding: const EdgeInsets.only(top: 20.0),
-      children: snapshot.map((data) => _buildListItem(context, data)).toList(),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.lime,
+        borderRadius: BorderRadius.circular(20.0),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.only(top: 20.0),
+        children:
+            snapshot.map((data) => _buildListItem(context, data)).toList(),
+      ),
     );
   }
 
+  //검색 쿼리를 활용하기 위한 함수. 미구현
   Widget _buildSearch() {
     return TextField(
-      controller: _qtec,
+      controller: _tec2,
       onChanged: (v) {
         _query = v;
       },
@@ -183,23 +158,82 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  //ListTile에 값을 뿌려주기
   Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
     final todo = ToDo.fromSnapshot(data);
-
+    IconData iconData = todo.favorite
+        ? Icons.star
+        : Icons.star_border; //작업 완료 여부를 표시하기 위해 참조할 아이콘 데이터
     return Padding(
-      key: ValueKey(todo.todo),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 3.0),
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(5.0),
         ),
         child: ListTile(
-          title: Text(todo.todo),
-          trailing: Text(todo.time.toString()),
-          tileColor: Colors.white,
-          // onTap: () => todo.reference. ({'time': DateFormat.yMMMMd('en_US').format(DateTime.now()).toString()}),
-        ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(todo.todo, style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  todo.time.toString(),
+                  style: TextStyle(color: Colors.blue),
+                )
+              ],
+            ),
+            trailing: IconButton(
+              icon: Icon(iconData),
+              onPressed: () {
+                todo.reference.updateData({
+                  'favorite': !(todo.favorite),
+                  'time': DateFormat.yMMMMd('en_US')
+                      .add_jm()
+                      .format(DateTime.now())
+                      .toString()
+                });
+              },
+            ),
+            tileColor: Colors.white,
+            onTap: () {
+              var dialtec = TextEditingController();
+              dialtec.text = todo.todo;
+              showDialog(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: Text("작업 내용 수정"),
+                      content: TextField(
+                        controller: dialtec,
+                      ),
+                      actions: [
+                        MaterialButton(
+                            child: Text("수정"),
+                            onPressed: () {
+                              todo.reference.updateData({
+                                'todo': dialtec.text,
+                                'time': DateFormat.yMMMMd('en_US')
+                                    .add_jm()
+                                    .format(DateTime.now())
+                                    .toString()
+                              });
+                              Navigator.pop(context);
+                            }),
+                      ],
+                    );
+                  });
+            },
+            onLongPress: () {
+              final snackBar = SnackBar(
+                content: Text('이 작업을 삭제하시겠습니까?'),
+                action: SnackBarAction(
+                  label: '삭제',
+                  onPressed: () {
+                    todo.reference.delete();
+                  },
+                ),
+              );
+              Scaffold.of(context).showSnackBar(snackBar);
+            }),
       ),
     );
   }
