@@ -35,8 +35,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   String _whatTodo = ""; //입력받은 할일 내용
   String _query = ""; //검색을 위한 쿼리 미구현으로 미사용
+  List<ToDo> todoList=[];
   var _tec = TextEditingController();
   var _tec2 = TextEditingController();
+  var _qtec = TextEditingController();
+
 
   void _addToDo() {
     //DB에 할일 저장하는 함수
@@ -61,7 +64,11 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             Text('Inbox'),
             Expanded(
-                child: TextField(decoration: InputDecoration(labelText: '검색'))),
+                child: TextField(decoration: InputDecoration(labelText: '검색'), controller: _qtec, onChanged: (text) {
+                  setState(() {
+                    _query = text;
+                  });
+                },)),
             TextButton(onPressed: () {}, child: Text('Search'))
           ],
         ),
@@ -81,7 +88,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: TextField(
                         controller: _tec,
                         onChanged: (v) {
-                          _whatTodo = v;
+                            _whatTodo = v;
                         },
                         decoration: InputDecoration(
                           labelText: 'Add a to-do...',
@@ -113,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+
   //DB에서 값을 가져와서 넘겨주기까지
   Widget _buildBody(BuildContext context, bool done) {
     return StreamBuilder<QuerySnapshot>(
@@ -124,14 +132,15 @@ class _MyHomePageState extends State<MyHomePage> {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData)
-          return CircularProgressIndicator(); //스냅샷이 비워져있을시 미구현
-        return _buildList(context, snapshot.data.documents);
+          return CircularProgressIndicator();
+        todoList = snapshot.data.documents.map((e) => ToDo.fromSnapshot(e)).toList();//스냅샷이 비워져있을시 미구현
+        return _buildList(context, todoList);
       },
     );
   }
 
   //넘겨준 객체(스냅샷)마다 map으로 돌려서 ListTile 만드는 함수를 부르고, 결과값을 ListView에 뿌려주기
-  Widget _buildList(BuildContext context, List<DocumentSnapshot> snapshot) {
+  Widget _buildList(BuildContext context, List<ToDo> todoList) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.lime,
@@ -140,7 +149,7 @@ class _MyHomePageState extends State<MyHomePage> {
       child: ListView(
         padding: const EdgeInsets.only(top: 20.0),
         children:
-            snapshot.map((data) => _buildListItem(context, data)).toList(),
+        todoList.where((e) => e.todo.toLowerCase().contains(_query.toLowerCase())).map((data) => _buildListItem(context, data)).toList(),
       ),
     );
   }
@@ -159,8 +168,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   //ListTile에 값을 뿌려주기
-  Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
-    final todo = ToDo.fromSnapshot(data);
+  Widget _buildListItem(BuildContext context, ToDo data) {
+    final todo = data;
     IconData iconData = todo.favorite
         ? Icons.star
         : Icons.star_border; //작업 완료 여부를 표시하기 위해 참조할 아이콘 데이터

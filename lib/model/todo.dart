@@ -18,7 +18,6 @@ class ToDo{
       : this.fromMap(snapshot.data, reference: snapshot.reference);
 
 
-
   @override
   String toString() => "ToDo<$time:$todo>";
 }
